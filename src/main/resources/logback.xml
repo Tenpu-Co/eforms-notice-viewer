@@ -19,6 +19,9 @@
   <appender name="FILE"
     class="ch.qos.logback.core.FileAppender">
     <file>logs/eforms-notice-viewer.log</file>
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>WARN</level>
+    </filter>
     <!-- set immediateFlush to false for much higher logging throughput -->
     <immediateFlush>true</immediateFlush>
     <!-- encoders are assigned the type ch.qos.logback.classic.encoder.PatternLayoutEncoder 

@@ -7,6 +7,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
+import java.util.Base64;  
 import java.util.Enumeration;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -15,16 +16,23 @@ import java.util.jar.Manifest;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 import javax.xml.xpath.XPathExpressionException;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jsoup.helper.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.SAXException;
+import eu.europa.ted.eforms.viewer.DependencyFactory;
 import eu.europa.ted.eforms.viewer.NoticeDocument;
 import eu.europa.ted.eforms.viewer.NoticeViewer;
 import eu.europa.ted.eforms.viewer.NoticeViewerConstants;
 import eu.europa.ted.eforms.viewer.config.NoticeViewerConfig;
+import eu.europa.ted.eforms.viewer.generator.XslGenerator;
 import eu.europa.ted.eforms.viewer.util.xml.TranslationUriResolver;
+
+import eu.europa.ted.efx.EfxTranslatorOptions;
+import eu.europa.ted.efx.model.DecimalFormat;
+import freemarker.template.TemplateException;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.IVersionProvider;
@@ -44,17 +52,27 @@ public class CliCommand implements Callable<Integer> {
 
   private String language;
 
-  @Parameters(index = "1", description = "Path of XML file to view.")
-  private Path noticeXmlPath;
+  @Parameters(index = "1", description = "XML file to view as base64 string.", defaultValue = "")
+  private String noticeXmlEncoded;
 
   @Option(names = {"-i", "--viewId"}, description = "View ID to use.")
   private String viewId;
+
+  @Option(names = {"-v", "--sdkVersionId"}, description = "eForms SDK version ID to use.")
+  private String sdkVersionId;
+
+  @Option(names = {"-o", "--outputPath"}, description = "Output path.")
+  private String outputPath;
 
   @Option(names = {"-r", "--sdkRoot"}, description = "SDK resources root folder.")
   private String sdkResourcesRoot;
 
   @Option(names = {"-p", "--profileXslt"}, description = "Enable XSLT profiling.")
   private boolean profileXslt;
+
+  @Option(names = {"-x", "--only-xslt"},
+      description = "Generate only the XSLT file.")
+  private boolean onlyXslt;
 
   @Option(names = {"-f", "--force"},
       description = "Force re-building of XSL by clearing any cached content.")
@@ -88,13 +106,7 @@ public class CliCommand implements Callable<Integer> {
   @Override
   public Integer call()
       throws IOException, SAXException, ParserConfigurationException, InstantiationException,
-      URISyntaxException, TransformerException, XPathExpressionException {
-    Validate.notNull(noticeXmlPath, "Undefined notice XML path");
-    if (!Files.isRegularFile(noticeXmlPath)) {
-      throw new FileNotFoundException(noticeXmlPath.toString());
-    }
-
-    final String xmlContents = Files.readString(noticeXmlPath);
+      URISyntaxException, TemplateException, TransformerException, XPathExpressionException {
 
     // Initialise Freemarker templates so that the templates folder will be populated
     NoticeViewerConfig.getFreemarkerConfig();
@@ -103,18 +115,40 @@ public class CliCommand implements Callable<Integer> {
         .map(Path::of)
         .orElse(NoticeViewerConstants.DEFAULT_SDK_ROOT_DIR);
 
+    if (onlyXslt) {
+
+      final Path efxPath = NoticeViewer.getEfxPath(sdkVersionId, viewId, sdkRoot);
+
+      logger.debug("Starting XSL generation using the EFX template at [{}]", efxPath);
+      final Path xsltPath =
+        XslGenerator.Builder
+          .create(new DependencyFactory(sdkRoot))
+          .build()
+          .generateFile(sdkVersionId, efxPath,
+            new EfxTranslatorOptions(NoticeViewerConstants.DEFAULT_TRANSLATOR_OPTIONS.getDecimalFormat(), language),
+          true);
+
+      logger.debug("Created XSLT file: {}", xsltPath);
+
+      return 0;
+    }
+
+    Base64.Decoder decoder = Base64.getDecoder();  
+    final String xmlContents = new String(decoder.decode(noticeXmlEncoded));
     NoticeDocument notice = new NoticeDocument(xmlContents);
-    final Path htmlPath =
+
+    final String html =
         NoticeViewer.Builder
             .create()
             .withProfileXslt(profileXslt)
             .withUriResolver(new TranslationUriResolver(notice.getEformsSdkVersion(), sdkRoot))
             .build()
-            .generateHtmlFile(language, viewId, notice, null, sdkRoot,
+            .generateHtmlString(language, viewId, notice, sdkRoot,
                 NoticeViewerConstants.DEFAULT_TRANSLATOR_OPTIONS.getDecimalFormat(),
                 forceBuild);
 
-    logger.info("Created HTML file: {}", htmlPath);
+    Base64.Encoder encoder = Base64.getEncoder();  
+    logger.info(encoder.encodeToString(html.getBytes()));
 
     return 0;
   }

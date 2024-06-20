@@ -20,6 +20,7 @@ import freemarker.cache.FileTemplateLoader;
 import freemarker.cache.MultiTemplateLoader;
 import freemarker.cache.TemplateLoader;
 import freemarker.template.Configuration;
+import freemarker.template.TemplateException;
 
 /**
  * Class providing configuration for Freemarker
@@ -41,8 +42,9 @@ public class NoticeViewerConfig {
    *
    * @return A Freemarker configuration object.
    * @throws IOException
+   * @throws TemplateException 
    */
-  public static Configuration getFreemarkerConfig() throws IOException {
+  public static Configuration getFreemarkerConfig() throws IOException, TemplateException {
     if (freemarkerConfig == null) {
       final String templatesRootDir =
           System.getProperty(NoticeViewerConstants.TEMPLATES_ROOT_DIR_PROPERTY);
@@ -52,9 +54,8 @@ public class NoticeViewerConfig {
       logger.debug("Configuring Freemarker using [{}] as the templates root directory.",
           templatesRootDirPath);
 
-      List<TemplateLoader> templateLoaders = new ArrayList<>(
-          Arrays.asList(new ClassTemplateLoader(NoticeViewerConfig.class, "/templates")));
-
+      List<TemplateLoader> templateLoaders = new ArrayList<>();
+          
       try {
         populateExternalTemplatesDir(templatesRootDirPath);
         templateLoaders.add(new FileTemplateLoader(templatesRootDirPath.toFile()));
@@ -67,6 +68,8 @@ public class NoticeViewerConfig {
           new MultiTemplateLoader(templateLoaders.toArray(TemplateLoader[]::new));
 
       freemarkerConfig = new Configuration(Configuration.VERSION_2_3_31);
+      freemarkerConfig.setSetting(Configuration.CACHE_STORAGE_KEY, "strong:10, soft:500");
+      freemarkerConfig.clearTemplateCache();
       freemarkerConfig.setTemplateLoader(multiTemplateLoader);
 
       logger.debug("Freemarker configured successfully.");

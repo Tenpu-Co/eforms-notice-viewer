@@ -170,7 +170,7 @@ public class HtmlGenerator {
       // Ensure the HTML can be parsed.
       Jsoup.parse(html);
 
-      logger.info("Finished generating HTML as string for language [{}] and view ID [{}]", language,
+      logger.debug("Finished generating HTML as string for language [{}] and view ID [{}]", language,
           viewId);
       logger.trace("Generated HTML:\n{}", html);
 

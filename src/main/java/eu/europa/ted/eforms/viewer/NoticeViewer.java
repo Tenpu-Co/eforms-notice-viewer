@@ -195,12 +195,12 @@ public class NoticeViewer {
       throws TransformerException, IOException {
     Validate.notNull(notice, MSG_UNDEFINED_NOTICE_DOCUMENT);
 
-    logger.info("Generating HTML for language [{}] and view ID [{}]", language, viewId);
+    logger.debug("Generating HTML for language [{}] and view ID [{}]", language, viewId);
 
     final String html = createHtmlGenerator().generateString(language, viewId,
         notice.getXmlContents(), xslContents);
 
-    logger.info("Finished generating HTML for language [{}] and view ID [{}]", language, viewId);
+    logger.debug("Finished generating HTML for language [{}] and view ID [{}]", language, viewId);
 
     return html;
   }

@@ -23,8 +23,9 @@ public class FreemarkerHelper {
    * @param templatePath The template's path
    * @return A Freemarker template
    * @throws IOException
+   * @throws TemplateException 
    */
-  public static Template getTemplate(final String templatePath) throws IOException {
+  public static Template getTemplate(final String templatePath) throws IOException, TemplateException {
     return NoticeViewerConfig.getFreemarkerConfig().getTemplate(templatePath);
   }
 
